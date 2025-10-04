@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import {
@@ -24,10 +25,12 @@ import {
 import useScrollReveal from "../hooks/useScrollReveal";
 import use3DTilt from "../hooks/use3DTilt";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL =
+  process.env.REACT_APP_BACKEND_URL || "http://localhost:8000";
 const API = `${BACKEND_URL}/api`;
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [expenses, setExpenses] = useState([]);
   const [budgets, setBudgets] = useState([]);
   const [savingsGoals, setSavingsGoals] = useState([]);
@@ -71,7 +74,22 @@ const Dashboard = () => {
       setAnalytics(analyticsRes.data);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
-      toast.error("Failed to load dashboard data");
+
+      // Don't show error toast for new users with no data
+      // Only show error if it's a real server error (not 404/empty data)
+      if (error.response?.status >= 500) {
+        toast.error("Failed to load dashboard data");
+      } else {
+        // For new users or 404 errors, just set empty data
+        setExpenses([]);
+        setBudgets([]);
+        setSavingsGoals([]);
+        setAnalytics({
+          total_expenses: 0,
+          category_breakdown: {},
+          expense_count: 0,
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -164,6 +182,45 @@ const Dashboard = () => {
           </Button>
         </div>
       </div>
+
+      {/* Welcome Message for New Users */}
+      {expenses.length === 0 &&
+        budgets.length === 0 &&
+        savingsGoals.length === 0 && (
+          <Card className="border-green-200 bg-green-50 shadow-lg">
+            <CardContent className="p-6">
+              <div className="text-center">
+                <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                  <TrendingUp className="h-8 w-8 text-green-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-green-900 mb-2">
+                  Welcome to Your Expense Manager!
+                </h3>
+                <p className="text-green-700 mb-4">
+                  You're all set up! Start by adding your first expense or
+                  setting up a budget to track your spending.
+                </p>
+                <div className="flex justify-center space-x-4">
+                  <Button
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={() => navigate("/expenses")}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add First Expense
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-green-300 text-green-700 hover:bg-green-100"
+                    onClick={() => navigate("/budgets")}
+                  >
+                    <Target className="h-4 w-4 mr-2" />
+                    Set Budget
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       {/* Stats Cards */}
       <div

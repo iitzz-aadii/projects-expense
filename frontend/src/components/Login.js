@@ -191,36 +191,19 @@ const Login = () => {
                 </Button>
               </form>
 
-              {/* Demo Credentials */}
-              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <h3 className="text-sm font-semibold text-blue-900 mb-2">
-                  Demo Credentials
+              {/* New User Info */}
+              <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <h3 className="text-sm font-semibold text-green-900 mb-2">
+                  New User?
                 </h3>
-                <p className="text-xs text-blue-700 mb-2">
-                  Use these credentials to explore the app with sample data:
+                <p className="text-xs text-green-700 mb-2">
+                  Create an account to start tracking your expenses and managing
+                  your budget.
                 </p>
-                <div className="text-xs text-blue-600 space-y-1">
-                  <p>
-                    <strong>Email:</strong> demo@student.com
-                  </p>
-                  <p>
-                    <strong>Password:</strong> demo123
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mt-3 w-full text-blue-600 border-blue-300 hover:bg-blue-100"
-                  onClick={() => {
-                    setFormData({
-                      email: "demo@student.com",
-                      password: "demo123",
-                    });
-                  }}
-                >
-                  Fill Demo Credentials
-                </Button>
+                <p className="text-xs text-green-600">
+                  All your data will be securely stored and accessible from any
+                  device.
+                </p>
               </div>
 
               <div className="mt-8 text-center">

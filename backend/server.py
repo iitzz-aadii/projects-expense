@@ -15,12 +15,12 @@ import jwt
 
 # AI Chat imports (optional)
 try:
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    import google.generativeai as genai
 
     AI_AVAILABLE = True
 except ImportError:
     AI_AVAILABLE = False
-    print("AI chat features disabled - emergentintegrations not available")
+    print("AI chat features disabled - google-generativeai not available")
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -29,590 +29,25 @@ load_dotenv(ROOT_DIR / ".env")
 mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 db_name = os.environ.get("DB_NAME", "student_expense_manager")
 
-# Initialize database connection - using demo mode for now
+# Initialize database connection
+try:
+    client = AsyncIOMotorClient(mongo_url)
+    db = client[db_name]
+    print(f"Connected to MongoDB: {db_name}")
+except Exception as e:
+    print(f"Failed to connect to MongoDB: {e}")
+    print("Running without database - some features may not work")
 db = None
 client = None
-print("Running in demo mode without database")
 
-# In-memory storage for demo mode
+# In-memory storage for fallback (when database is not available)
 demo_storage = {
-    "users": [
-        {
-            "id": "demo-user-1",
-            "name": "Demo Student",
-            "email": "demo@student.com",
-            "password_hash": "demo_password_hash",
-            "created_at": "2024-01-01T00:00:00Z",
-        }
-    ],
-    "expenses": [
-        # January 2024 Expenses
-        {
-            "id": "expense-1",
-            "user_id": "demo-user-1",
-            "amount": 150.00,
-            "category": "Food",
-            "date": "2024-01-15",
-            "notes": "Lunch at cafeteria",
-        },
-        {
-            "id": "expense-2",
-            "user_id": "demo-user-1",
-            "amount": 75.50,
-            "category": "Study Material",
-            "date": "2024-01-14",
-            "notes": "Textbook purchase",
-        },
-        {
-            "id": "expense-3",
-            "user_id": "demo-user-1",
-            "amount": 200.00,
-            "category": "Travel",
-            "date": "2024-01-13",
-            "notes": "Bus pass for month",
-        },
-        {
-            "id": "expense-4",
-            "user_id": "demo-user-1",
-            "amount": 45.00,
-            "category": "Food",
-            "date": "2024-01-12",
-            "notes": "Coffee and snacks",
-        },
-        {
-            "id": "expense-5",
-            "user_id": "demo-user-1",
-            "amount": 120.00,
-            "category": "Personal",
-            "date": "2024-01-11",
-            "notes": "Haircut and grooming",
-        },
-        {
-            "id": "expense-6",
-            "user_id": "demo-user-1",
-            "amount": 85.00,
-            "category": "Food",
-            "date": "2024-01-20",
-            "notes": "Dinner with friends",
-        },
-        {
-            "id": "expense-7",
-            "user_id": "demo-user-1",
-            "amount": 300.00,
-            "category": "Study Material",
-            "date": "2024-01-25",
-            "notes": "Online course subscription",
-        },
-        {
-            "id": "expense-8",
-            "user_id": "demo-user-1",
-            "amount": 60.00,
-            "category": "Personal",
-            "date": "2024-01-28",
-            "notes": "Movie ticket",
-        },
-        # February 2024 Expenses
-        {
-            "id": "expense-9",
-            "user_id": "demo-user-1",
-            "amount": 180.00,
-            "category": "Food",
-            "date": "2024-02-05",
-            "notes": "Valentine's dinner",
-        },
-        {
-            "id": "expense-10",
-            "user_id": "demo-user-1",
-            "amount": 120.00,
-            "category": "Study Material",
-            "date": "2024-02-08",
-            "notes": "Stationery supplies",
-        },
-        {
-            "id": "expense-11",
-            "user_id": "demo-user-1",
-            "amount": 200.00,
-            "category": "Travel",
-            "date": "2024-02-10",
-            "notes": "Monthly bus pass",
-        },
-        {
-            "id": "expense-12",
-            "user_id": "demo-user-1",
-            "amount": 95.00,
-            "category": "Food",
-            "date": "2024-02-15",
-            "notes": "Cafeteria meals",
-        },
-        {
-            "id": "expense-13",
-            "user_id": "demo-user-1",
-            "amount": 150.00,
-            "category": "Personal",
-            "date": "2024-02-18",
-            "notes": "New clothes",
-        },
-        {
-            "id": "expense-14",
-            "user_id": "demo-user-1",
-            "amount": 250.00,
-            "category": "Study Material",
-            "date": "2024-02-22",
-            "notes": "Reference books",
-        },
-        {
-            "id": "expense-15",
-            "user_id": "demo-user-1",
-            "amount": 70.00,
-            "category": "Food",
-            "date": "2024-02-25",
-            "notes": "Snacks and drinks",
-        },
-        # March 2024 Expenses
-        {
-            "id": "expense-16",
-            "user_id": "demo-user-1",
-            "amount": 200.00,
-            "category": "Travel",
-            "date": "2024-03-05",
-            "notes": "Monthly bus pass",
-        },
-        {
-            "id": "expense-17",
-            "user_id": "demo-user-1",
-            "amount": 110.00,
-            "category": "Food",
-            "date": "2024-03-08",
-            "notes": "Cafeteria lunch",
-        },
-        {
-            "id": "expense-18",
-            "user_id": "demo-user-1",
-            "amount": 180.00,
-            "category": "Study Material",
-            "date": "2024-03-12",
-            "notes": "Lab equipment",
-        },
-        {
-            "id": "expense-19",
-            "user_id": "demo-user-1",
-            "amount": 80.00,
-            "category": "Personal",
-            "date": "2024-03-15",
-            "notes": "Haircut",
-        },
-        {
-            "id": "expense-20",
-            "user_id": "demo-user-1",
-            "amount": 160.00,
-            "category": "Food",
-            "date": "2024-03-20",
-            "notes": "Restaurant dinner",
-        },
-        {
-            "id": "expense-21",
-            "user_id": "demo-user-1",
-            "amount": 90.00,
-            "category": "Study Material",
-            "date": "2024-03-25",
-            "notes": "Printing and photocopy",
-        },
-        {
-            "id": "expense-22",
-            "user_id": "demo-user-1",
-            "amount": 130.00,
-            "category": "Personal",
-            "date": "2024-03-28",
-            "notes": "Gym membership",
-        },
-        # April 2024 Expenses
-        {
-            "id": "expense-23",
-            "user_id": "demo-user-1",
-            "amount": 200.00,
-            "category": "Travel",
-            "date": "2024-04-02",
-            "notes": "Monthly bus pass",
-        },
-        {
-            "id": "expense-24",
-            "user_id": "demo-user-1",
-            "amount": 140.00,
-            "category": "Food",
-            "date": "2024-04-05",
-            "notes": "Cafeteria meals",
-        },
-        {
-            "id": "expense-25",
-            "user_id": "demo-user-1",
-            "amount": 200.00,
-            "category": "Study Material",
-            "date": "2024-04-10",
-            "notes": "Exam preparation materials",
-        },
-        {
-            "id": "expense-26",
-            "user_id": "demo-user-1",
-            "amount": 100.00,
-            "category": "Personal",
-            "date": "2024-04-12",
-            "notes": "Entertainment",
-        },
-        {
-            "id": "expense-27",
-            "user_id": "demo-user-1",
-            "amount": 75.00,
-            "category": "Food",
-            "date": "2024-04-15",
-            "notes": "Coffee and snacks",
-        },
-        {
-            "id": "expense-28",
-            "user_id": "demo-user-1",
-            "amount": 300.00,
-            "category": "Study Material",
-            "date": "2024-04-18",
-            "notes": "Online course",
-        },
-        {
-            "id": "expense-29",
-            "user_id": "demo-user-1",
-            "amount": 120.00,
-            "category": "Personal",
-            "date": "2024-04-22",
-            "notes": "New shoes",
-        },
-        {
-            "id": "expense-30",
-            "user_id": "demo-user-1",
-            "amount": 90.00,
-            "category": "Food",
-            "date": "2024-04-25",
-            "notes": "Cafeteria dinner",
-        },
-    ],
-    "budgets": [
-        # January 2024 Budgets
-        {
-            "id": "budget-1",
-            "user_id": "demo-user-1",
-            "type": "category",
-            "category": "Food",
-            "amount": 2000.00,
-            "month": 1,
-            "year": 2024,
-            "created_at": "2024-01-01T00:00:00Z",
-        },
-        {
-            "id": "budget-2",
-            "user_id": "demo-user-1",
-            "type": "category",
-            "category": "Study Material",
-            "amount": 1000.00,
-            "month": 1,
-            "year": 2024,
-            "created_at": "2024-01-01T00:00:00Z",
-        },
-        {
-            "id": "budget-3",
-            "user_id": "demo-user-1",
-            "type": "category",
-            "category": "Travel",
-            "amount": 500.00,
-            "month": 1,
-            "year": 2024,
-            "created_at": "2024-01-01T00:00:00Z",
-        },
-        {
-            "id": "budget-4",
-            "user_id": "demo-user-1",
-            "type": "category",
-            "category": "Personal",
-            "amount": 1000.00,
-            "month": 1,
-            "year": 2024,
-            "created_at": "2024-01-01T00:00:00Z",
-        },
-        # February 2024 Budgets
-        {
-            "id": "budget-5",
-            "user_id": "demo-user-1",
-            "type": "category",
-            "category": "Food",
-            "amount": 2200.00,
-            "month": 2,
-            "year": 2024,
-            "created_at": "2024-02-01T00:00:00Z",
-        },
-        {
-            "id": "budget-6",
-            "user_id": "demo-user-1",
-            "type": "category",
-            "category": "Study Material",
-            "amount": 1200.00,
-            "month": 2,
-            "year": 2024,
-            "created_at": "2024-02-01T00:00:00Z",
-        },
-        {
-            "id": "budget-7",
-            "user_id": "demo-user-1",
-            "type": "category",
-            "category": "Travel",
-            "amount": 500.00,
-            "month": 2,
-            "year": 2024,
-            "created_at": "2024-02-01T00:00:00Z",
-        },
-        {
-            "id": "budget-8",
-            "user_id": "demo-user-1",
-            "type": "category",
-            "category": "Personal",
-            "amount": 1200.00,
-            "month": 2,
-            "year": 2024,
-            "created_at": "2024-02-01T00:00:00Z",
-        },
-        # March 2024 Budgets
-        {
-            "id": "budget-9",
-            "user_id": "demo-user-1",
-            "type": "category",
-            "category": "Food",
-            "amount": 1800.00,
-            "month": 3,
-            "year": 2024,
-            "created_at": "2024-03-01T00:00:00Z",
-        },
-        {
-            "id": "budget-10",
-            "user_id": "demo-user-1",
-            "type": "category",
-            "category": "Study Material",
-            "amount": 1500.00,
-            "month": 3,
-            "year": 2024,
-            "created_at": "2024-03-01T00:00:00Z",
-        },
-        {
-            "id": "budget-11",
-            "user_id": "demo-user-1",
-            "type": "category",
-            "category": "Travel",
-            "amount": 500.00,
-            "month": 3,
-            "year": 2024,
-            "created_at": "2024-03-01T00:00:00Z",
-        },
-        {
-            "id": "budget-12",
-            "user_id": "demo-user-1",
-            "type": "category",
-            "category": "Personal",
-            "amount": 800.00,
-            "month": 3,
-            "year": 2024,
-            "created_at": "2024-03-01T00:00:00Z",
-        },
-        # April 2024 Budgets
-        {
-            "id": "budget-13",
-            "user_id": "demo-user-1",
-            "type": "category",
-            "category": "Food",
-            "amount": 2000.00,
-            "month": 4,
-            "year": 2024,
-            "created_at": "2024-04-01T00:00:00Z",
-        },
-        {
-            "id": "budget-14",
-            "user_id": "demo-user-1",
-            "type": "category",
-            "category": "Study Material",
-            "amount": 2000.00,
-            "month": 4,
-            "year": 2024,
-            "created_at": "2024-04-01T00:00:00Z",
-        },
-        {
-            "id": "budget-15",
-            "user_id": "demo-user-1",
-            "type": "category",
-            "category": "Travel",
-            "amount": 500.00,
-            "month": 4,
-            "year": 2024,
-            "created_at": "2024-04-01T00:00:00Z",
-        },
-        {
-            "id": "budget-16",
-            "user_id": "demo-user-1",
-            "type": "category",
-            "category": "Personal",
-            "amount": 1000.00,
-            "month": 4,
-            "year": 2024,
-            "created_at": "2024-04-01T00:00:00Z",
-        },
-    ],
-    "savings_goals": [
-        {
-            "id": "savings-1",
-            "user_id": "demo-user-1",
-            "title": "Emergency Fund",
-            "target_amount": 10000.00,
-            "current_amount": 4200.00,
-            "target_date": "2024-12-01T00:00:00Z",
-            "created_at": "2024-01-01T00:00:00Z",
-        },
-        {
-            "id": "savings-2",
-            "user_id": "demo-user-1",
-            "title": "Laptop Upgrade",
-            "target_amount": 45000.00,
-            "current_amount": 15000.00,
-            "target_date": "2024-08-01T00:00:00Z",
-            "created_at": "2024-02-01T00:00:00Z",
-        },
-        {
-            "id": "savings-3",
-            "user_id": "demo-user-1",
-            "title": "Summer Trip",
-            "target_amount": 15000.00,
-            "current_amount": 8500.00,
-            "target_date": "2024-05-15T00:00:00Z",
-            "created_at": "2024-03-01T00:00:00Z",
-        },
-        {
-            "id": "savings-4",
-            "user_id": "demo-user-1",
-            "title": "Course Certification",
-            "target_amount": 5000.00,
-            "current_amount": 3200.00,
-            "target_date": "2024-07-01T00:00:00Z",
-            "created_at": "2024-01-15T00:00:00Z",
-        },
-    ],
-    "groups": [
-        {
-            "id": "group-1",
-            "name": "College Friends",
-            "description": "Expense sharing with college friends",
-            "created_by": "demo-user-1",
-            "members": [
-                {
-                    "user_id": "demo-user-1",
-                    "name": "Demo Student",
-                    "email": "demo@student.com",
-                    "joined_at": "2024-01-01T00:00:00Z",
-                },
-                {
-                    "user_id": "friend-1",
-                    "name": "Alex Johnson",
-                    "email": "alex@email.com",
-                    "joined_at": "2024-01-02T00:00:00Z",
-                },
-                {
-                    "user_id": "friend-2",
-                    "name": "Sarah Wilson",
-                    "email": "sarah@email.com",
-                    "joined_at": "2024-01-02T00:00:00Z",
-                },
-                {
-                    "user_id": "friend-3",
-                    "name": "Mike Chen",
-                    "email": "mike@email.com",
-                    "joined_at": "2024-01-03T00:00:00Z",
-                },
-            ],
-            "created_at": "2024-01-01T00:00:00Z",
-        },
-        {
-            "id": "group-2",
-            "name": "Roommates",
-            "description": "Shared apartment expenses",
-            "created_by": "demo-user-1",
-            "members": [
-                {
-                    "user_id": "demo-user-1",
-                    "name": "Demo Student",
-                    "email": "demo@student.com",
-                    "joined_at": "2024-02-01T00:00:00Z",
-                },
-                {
-                    "user_id": "roommate-1",
-                    "name": "Emma Davis",
-                    "email": "emma@email.com",
-                    "joined_at": "2024-02-01T00:00:00Z",
-                },
-            ],
-            "created_at": "2024-02-01T00:00:00Z",
-        },
-    ],
-    "group_expenses": [
-        {
-            "id": "group-expense-1",
-            "group_id": "group-1",
-            "paid_by": "demo-user-1",
-            "paid_by_name": "Demo Student",
-            "amount": 1200.00,
-            "description": "Dinner at restaurant",
-            "category": "Food",
-            "date": "2024-01-15T00:00:00Z",
-            "split_among": ["demo-user-1", "friend-1", "friend-2", "friend-3"],
-            "created_at": "2024-01-15T00:00:00Z",
-        },
-        {
-            "id": "group-expense-2",
-            "group_id": "group-1",
-            "paid_by": "friend-1",
-            "paid_by_name": "Alex Johnson",
-            "amount": 800.00,
-            "description": "Movie tickets",
-            "category": "Entertainment",
-            "date": "2024-01-20T00:00:00Z",
-            "split_among": ["demo-user-1", "friend-1", "friend-2", "friend-3"],
-            "created_at": "2024-01-20T00:00:00Z",
-        },
-        {
-            "id": "group-expense-3",
-            "group_id": "group-1",
-            "paid_by": "friend-2",
-            "paid_by_name": "Sarah Wilson",
-            "amount": 600.00,
-            "description": "Uber rides",
-            "category": "Transport",
-            "date": "2024-01-25T00:00:00Z",
-            "split_among": ["demo-user-1", "friend-1", "friend-2", "friend-3"],
-            "created_at": "2024-01-25T00:00:00Z",
-        },
-        {
-            "id": "group-expense-4",
-            "group_id": "group-2",
-            "paid_by": "demo-user-1",
-            "paid_by_name": "Demo Student",
-            "amount": 2000.00,
-            "description": "Monthly rent",
-            "category": "Housing",
-            "date": "2024-02-01T00:00:00Z",
-            "split_among": ["demo-user-1", "roommate-1"],
-            "created_at": "2024-02-01T00:00:00Z",
-        },
-        {
-            "id": "group-expense-5",
-            "group_id": "group-2",
-            "paid_by": "roommate-1",
-            "paid_by_name": "Emma Davis",
-            "amount": 1500.00,
-            "description": "Electricity bill",
-            "category": "Utilities",
-            "date": "2024-02-05T00:00:00Z",
-            "split_among": ["demo-user-1", "roommate-1"],
-            "created_at": "2024-02-05T00:00:00Z",
-        },
-    ],
+    "users": [],
+    "expenses": [],
+    "budgets": [],
+    "savings_goals": [],
+    "groups": [],
+    "group_expenses": [],
 }
 
 
@@ -722,7 +157,7 @@ app = FastAPI(title="Student Expense Manager", version="1.0.0")
 api_router = APIRouter(prefix="/api")
 
 # AI Chat instance
-EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 
 def hash_password(password: str) -> str:
@@ -937,21 +372,6 @@ async def register(user_data: UserCreate):
 
 @api_router.post("/auth/login")
 async def login(login_data: UserLogin):
-    # Demo mode: accept demo credentials
-    if login_data.email == "demo@student.com" and login_data.password == "demo123":
-        demo_user = demo_storage["users"][0]
-        token = create_jwt_token(demo_user["id"])
-        return {
-            "access_token": token,
-            "token_type": "bearer",
-            "user": UserResponse(
-                id=demo_user["id"],
-                name=demo_user["name"],
-                email=demo_user["email"],
-                created_at=datetime.now(),
-            ),
-        }
-
     user = await db_find_one("users", {"email": login_data.email})
     if not user or not verify_password(login_data.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -1124,35 +544,40 @@ async def chat_with_ai(
             response="AI chat feature is currently unavailable. Please try again later."
         )
 
-    if not EMERGENT_LLM_KEY:
+    if not GEMINI_API_KEY:
         return ChatResponse(
             response="AI service not configured. Please contact support."
         )
 
     try:
+        # Configure Gemini API
+        genai.configure(api_key=GEMINI_API_KEY)
+
         # Get user's recent expenses for context
         recent_expenses = await db_find(
             "expenses", {"user_id": current_user.id}, ("date", -1), 10
         )
 
         # Prepare context about user's expenses
-        context = f"""You are a financial advisor AI for a student expense management app. 
-        The user {current_user.name} has recent expenses: {len(recent_expenses)} transactions.
+        context = f"""You are a helpful financial advisor AI for a student expense management app. 
+        The user {current_user.name} has {len(recent_expenses)} recent transactions.
         Provide helpful, concise financial advice and answer questions about budgeting, saving, and expense management.
-        Keep responses friendly and educational for students."""
+        Keep responses friendly, educational, and practical for students.
+        Focus on actionable tips and avoid giving specific investment advice."""
 
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"user_{current_user.id}",
-            system_message=context,
-        ).with_model("openai", "gpt-4o-mini")
+        # Create the model
+        model = genai.GenerativeModel("gemini-1.5-flash")
 
-        user_message = UserMessage(text=message_data.message)
-        response = await chat.send_message(user_message)
+        # Create the prompt
+        prompt = f"{context}\n\nUser question: {message_data.message}"
 
-        return ChatResponse(response=response)
+        # Generate response
+        response = model.generate_content(prompt)
+
+        return ChatResponse(response=response.text)
 
     except Exception as e:
+        print(f"Gemini API error: {str(e)}")
         return ChatResponse(response=f"AI service error: {str(e)}")
 
 

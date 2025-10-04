@@ -16,7 +16,8 @@ import AIChat from "./components/AIChat";
 import GroupManager from "./components/GroupManager";
 import Navigation from "./components/Navigation";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL =
+  process.env.REACT_APP_BACKEND_URL || "http://localhost:8000";
 const API = `${BACKEND_URL}/api`;
 
 // Auth Context
